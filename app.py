@@ -1,5 +1,6 @@
-import matplotlib.pyplot as plt
+import os
 import pandas as pd
+import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 from pathlib import Path
@@ -13,21 +14,13 @@ st.set_page_config(
 
 sns.set_style("whitegrid")
 
-# Path ke folder data lokal kamu
-DATA_DIR = Path("data/PRSA_Data_20130301-20170228")
-
-import os
-import pandas as pd
-import streamlit as st
-from pathlib import Path
-
 @st.cache_data(show_spinner=True)
 def load_data():
     # 1. Gunakan path absolut yang dinamis berdasarkan lokasi script ini berjalan
     current_dir = os.path.dirname(os.path.abspath(__file__))
     BASE_DIR = Path(current_dir) / "data" 
     
-    # 2. Cari file dengan ekstensi .csv mengabaikan huruf besar/kecil (atasi case-sensitivity Linux)
+    # 2. Cari file dengan ekstensi .csv mengabaikan huruf besar/kecil
     csv_files = [f for f in BASE_DIR.rglob("*") if f.suffix.lower() == '.csv']
     csv_files = sorted(csv_files)
     
@@ -70,10 +63,15 @@ def load_data():
     df = df.dropna(subset=["datetime"])
     df = df.sort_values(["station", "datetime"]).reset_index(drop=True)
 
-    # 6. Isi missing value per station (ffill & bfill)
-    df = df.groupby("station", group_keys=False).apply(lambda x: x.ffill().bfill())
+    # 6. PERBAIKAN: Isi missing value (ffill & bfill) yang dijamin aman
+    # Hanya menargetkan kolom numerik agar kolom string ('station') tidak terhapus Pandas
+    cols_to_fill = ["PM2.5", "PM10", "SO2", "NO2", "CO", "O3", "TEMP", "PRES", "DEWP", "RAIN", "WSPM"]
+    for col in cols_to_fill:
+        if col in df.columns:
+            # Gunakan transform agar bentuk DataFrame tidak berubah dan kolom station aman
+            df[col] = df.groupby("station")[col].transform(lambda x: x.ffill().bfill())
 
-    return df.reset_index(drop=True)
+    return df
 
 def filter_data(df):
     stations = sorted(df["station"].dropna().unique().tolist())
@@ -106,7 +104,7 @@ def filter_data(df):
 
     return filtered, selected_stations, start_date, end_date
 
-# --- FUNGSI PLOTTING (Sesuai Permintaan) ---
+# --- FUNGSI PLOTTING ---
 
 def plot_monthly_pm25(df):
     monthly = (

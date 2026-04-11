@@ -18,49 +18,50 @@ DATA_DIR = Path("data/PRSA_Data_20130301-20170228")
 
 @st.cache_data(show_spinner=True)
 def load_data():
-    # 1. Arahkan ke folder utama 'data'
+    # 1. Pastikan Path ke folder utama 'data' benar
     BASE_DIR = Path("data")
     
-    # 2. Gunakan rglob agar Python mencari ke dalam semua sub-folder
+    # 2. rglob("*.csv") akan mencari ke semua sub-folder secara otomatis
     csv_files = sorted(BASE_DIR.rglob("*.csv")) 
     
     if not csv_files:
-        st.error(f"Tidak ada file CSV ditemukan di: {BASE_DIR.absolute()}")
+        st.error(f"Gagal! Tidak ada file CSV ditemukan di: {BASE_DIR.absolute()}")
+        st.info("Coba cek apakah folder 'data' di GitHub sudah berisi file .csv")
         st.stop()
 
     df_list = []
     for file_path in csv_files:
-        df = pd.read_csv(file_path)
+        try:
+            df = pd.read_csv(file_path)
 
-        # 3. Handle kolom station agar tidak KeyError lagi
-        if "station" not in df.columns or df["station"].isna().all():
-            parts = file_path.stem.split("_")
-            # Logika ambil nama stasiun dari nama file (Aotizhongxin, dsb)
-            station_name = parts[2] if len(parts) > 2 else file_path.stem
-            df["station"] = station_name
+            # 3. Proteksi KeyError: Buat kolom station jika hilang
+            if "station" not in df.columns or df["station"].isna().all():
+                # Ambil nama stasiun dari nama file (misal: PRSA_Data_Aotizhongxin...)
+                parts = file_path.stem.split("_")
+                station_name = parts[2] if len(parts) > 2 else file_path.stem
+                df["station"] = station_name
+            
+            df_list.append(df)
+        except Exception as e:
+            st.warning(f"File {file_path.name} bermasalah: {e}")
 
-        df_list.append(df)
-
+    # Gabungkan semua
     df = pd.concat(df_list, ignore_index=True)
 
-    # 4. Buat kolom datetime
+    # 4. Proses Datetime (Sesuai fitur kamu sebelumnya)
     df["datetime"] = pd.to_datetime(
         df[["year", "month", "day", "hour"]],
         errors="coerce"
     )
 
-    # 5. Pembersihan data sesuai fitur asli kamu
+    # 5. Bersihkan data
     df = df.dropna(subset=["datetime"])
     df = df.sort_values(["station", "datetime"]).reset_index(drop=True)
 
-    # 6. Isi missing value per station
-    df = (
-        df.groupby("station", group_keys=False)
-        .apply(lambda x: x.ffill().bfill())
-        .reset_index(drop=True)
-    )
+    # 6. Isi missing value per station (ffill & bfill)
+    df = df.groupby("station", group_keys=False).apply(lambda x: x.ffill().bfill())
 
-    return df
+    return df.reset_index(drop=True)
 
 def filter_data(df):
     stations = sorted(df["station"].dropna().unique().tolist())

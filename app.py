@@ -15,43 +15,56 @@ st.set_page_config(
 
 sns.set_style("whitegrid")
 
+# Pengaturan Global
 FILE_ID = "1RhU3gJlkteaAQfyn9XOVAz7a5o1-etgr"
 ZIP_PATH = Path("air_quality.zip")
 DATA_DIR = Path("data")
-EXTRACTED_DIR = DATA_DIR / "PRSA_Data_20130301-20170228"
-
 
 @st.cache_data(show_spinner=True)
 def load_data():
-    if not EXTRACTED_DIR.exists():
+    # 1. Pastikan folder data ada
+    if not DATA_DIR.exists():
         DATA_DIR.mkdir(exist_ok=True)
-        if not ZIP_PATH.exists():
-            gdown.download(
-                f"https://drive.google.com/uc?id={FILE_ID}",
-                str(ZIP_PATH),
-                quiet=False,
-            )
-        with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
-            zip_ref.extractall(DATA_DIR)
 
-    csv_files = sorted(EXTRACTED_DIR.glob("*.csv"))
+    # 2. Cek apakah ada file CSV di dalam folder data (termasuk subfolder)
+    csv_files = sorted(DATA_DIR.rglob("*.csv"))
+
+    # 3. Kalau CSV nggak ada, baru coba download & ekstrak
     if not csv_files:
-        raise FileNotFoundError(
-            f"Tidak ada file CSV di folder: {EXTRACTED_DIR}"
-        )
+        if not ZIP_PATH.exists():
+            try:
+                gdown.download(
+                    f"https://drive.google.com/uc?id={FILE_ID}",
+                    str(ZIP_PATH),
+                    quiet=False,
+                )
+            except Exception as e:
+                st.error(f"Gagal download data: {e}")
+        
+        if ZIP_PATH.exists():
+            with zipfile.ZipFile(ZIP_PATH, "r") as zip_ref:
+                zip_ref.extractall(DATA_DIR)
+            # Update daftar file setelah diekstrak
+            csv_files = sorted(DATA_DIR.rglob("*.csv"))
+
+    # 4. Final check kalau masih nggak ada file
+    if not csv_files:
+        st.error(f"Waduh! File CSV tidak ditemukan di dalam folder {DATA_DIR}. Pastikan kamu sudah mengupload data CSV ke GitHub.")
+        st.stop() # Berhenti di sini biar nggak error KeyError
 
     df_list = []
     for file_path in csv_files:
         df = pd.read_csv(file_path)
 
-        # Pakai kolom station asli kalau ada
+        # Cek dan buat kolom 'station' jika tidak ada
         if "station" not in df.columns or df["station"].isna().all():
             parts = file_path.stem.split("_")
             station_name = parts[2] if len(parts) > 2 else file_path.stem
             df["station"] = station_name
-
+        
         df_list.append(df)
 
+    # Gabungkan semua data
     df = pd.concat(df_list, ignore_index=True)
 
     # Buat kolom datetime

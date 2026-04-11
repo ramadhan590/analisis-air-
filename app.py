@@ -16,19 +16,24 @@ sns.set_style("whitegrid")
 # Path ke folder data lokal kamu
 DATA_DIR = Path("data/PRSA_Data_20130301-20170228")
 
+import os
+import pandas as pd
+import streamlit as st
+from pathlib import Path
+
 @st.cache_data(show_spinner=True)
 def load_data():
-    # 1. Arahkan ke folder utama 'data'
-    # Berdasarkan screenshot GitHub kamu, folder utamanya adalah 'data'
-    BASE_DIR = Path("data")
+    # 1. Gunakan path absolut yang dinamis berdasarkan lokasi script ini berjalan
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    BASE_DIR = Path(current_dir) / "data" 
     
-    # 2. rglob("*.csv") akan mencari ke SEMUA sub-folder secara otomatis
-    # Ini solusi agar folder PRSA_Data_... di dalam 'data' bisa terbaca
-    csv_files = sorted(BASE_DIR.rglob("*.csv")) 
+    # 2. Cari file dengan ekstensi .csv mengabaikan huruf besar/kecil (atasi case-sensitivity Linux)
+    csv_files = [f for f in BASE_DIR.rglob("*") if f.suffix.lower() == '.csv']
+    csv_files = sorted(csv_files)
     
     if not csv_files:
         st.error(f"Gagal! Tidak ada file CSV ditemukan di: {BASE_DIR.absolute()}")
-        st.info("Pastikan folder 'data' di GitHub tidak kosong.")
+        st.info("💡 Pastikan folder 'data' tidak ter-ignore oleh .gitignore dan sudah ter-push ke GitHub.")
         st.stop()
 
     df_list = []
@@ -36,42 +41,39 @@ def load_data():
         try:
             df = pd.read_csv(file_path)
 
-            # 3. FITUR ASLI: Pakai kolom station atau ambil dari nama file
+            # 3. Proteksi KeyError: Buat kolom station jika hilang
             if "station" not in df.columns or df["station"].isna().all():
+                # Ambil nama stasiun dari nama file
                 parts = file_path.stem.split("_")
-                # Mengambil nama stasiun (misal: Aotizhongxin) dari nama file
                 station_name = parts[2] if len(parts) > 2 else file_path.stem
                 df["station"] = station_name
             
             df_list.append(df)
         except Exception as e:
-            # Lewati file jika ada yang rusak
-            continue
+            st.warning(f"File {file_path.name} bermasalah: {e}")
 
+    # Cegah error jika semua file gagal dibaca
     if not df_list:
-        st.error("Semua file CSV gagal dibaca.")
+        st.error("Semua file CSV gagal diproses.")
         st.stop()
 
+    # Gabungkan semua
     df = pd.concat(df_list, ignore_index=True)
 
-    # 4. FITUR ASLI: Buat kolom datetime
+    # 4. Proses Datetime
     df["datetime"] = pd.to_datetime(
         df[["year", "month", "day", "hour"]],
         errors="coerce"
     )
 
-    # 5. FITUR ASLI: Bersihkan data & Urutkan
+    # 5. Bersihkan data
     df = df.dropna(subset=["datetime"])
     df = df.sort_values(["station", "datetime"]).reset_index(drop=True)
 
-    # 6. FITUR ASLI: Isi missing value per station
-    df = (
-        df.groupby("station", group_keys=False)
-        .apply(lambda x: x.ffill().bfill())
-        .reset_index(drop=True)
-    )
+    # 6. Isi missing value per station (ffill & bfill)
+    df = df.groupby("station", group_keys=False).apply(lambda x: x.ffill().bfill())
 
-    return df
+    return df.reset_index(drop=True)
 
 def filter_data(df):
     stations = sorted(df["station"].dropna().unique().tolist())

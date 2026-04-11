@@ -18,18 +18,24 @@ DATA_DIR = Path("data/PRSA_Data_20130301-20170228")
 
 @st.cache_data(show_spinner=True)
 def load_data():
-    csv_files = sorted(DATA_DIR.glob("*.csv"))
+    # 1. Arahkan ke folder utama 'data'
+    BASE_DIR = Path("data")
+    
+    # 2. Gunakan rglob agar Python mencari ke dalam semua sub-folder
+    csv_files = sorted(BASE_DIR.rglob("*.csv")) 
+    
     if not csv_files:
-        st.error(f"Tidak ada file CSV di folder: {DATA_DIR}")
+        st.error(f"Tidak ada file CSV ditemukan di: {BASE_DIR.absolute()}")
         st.stop()
 
     df_list = []
     for file_path in csv_files:
         df = pd.read_csv(file_path)
 
-        # FITUR: Pakai kolom station asli atau ambil dari nama file
+        # 3. Handle kolom station agar tidak KeyError lagi
         if "station" not in df.columns or df["station"].isna().all():
             parts = file_path.stem.split("_")
+            # Logika ambil nama stasiun dari nama file (Aotizhongxin, dsb)
             station_name = parts[2] if len(parts) > 2 else file_path.stem
             df["station"] = station_name
 
@@ -37,19 +43,17 @@ def load_data():
 
     df = pd.concat(df_list, ignore_index=True)
 
-    # FITUR: Buat kolom datetime
+    # 4. Buat kolom datetime
     df["datetime"] = pd.to_datetime(
         df[["year", "month", "day", "hour"]],
         errors="coerce"
     )
 
-    # FITUR: Hapus baris datetime gagal
+    # 5. Pembersihan data sesuai fitur asli kamu
     df = df.dropna(subset=["datetime"])
-
-    # FITUR: Urutkan
     df = df.sort_values(["station", "datetime"]).reset_index(drop=True)
 
-    # FITUR: Isi missing value per station
+    # 6. Isi missing value per station
     df = (
         df.groupby("station", group_keys=False)
         .apply(lambda x: x.ffill().bfill())

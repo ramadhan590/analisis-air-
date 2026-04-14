@@ -187,7 +187,7 @@ def plot_advanced_analysis(df):
     sns.countplot(
         data=df_clean, 
         x='aqi_category', 
-        order=['Baik (Good)', 'Sedang (Moderate)', 'Tidak Sehat (Unhealthy)', 'Sangat Tidak Sehat (Very Unhealthy)'], 
+        order=['Baik ', 'Sedang ', 'Tidak Sehat ', 'Sangat Tidak Sehat '], 
         palette='RdYlGn_r',
         hue='aqi_category',
         legend=False,

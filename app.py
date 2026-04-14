@@ -303,15 +303,12 @@ def main():
 
 
     # --- KESIMPULAN ---
-    st.subheader("📌 Conclusion")
+    st.subheader("📌 Kesimpulan")
     st.markdown("""
-    Berdasarkan hasil analisis data kualitas udara dari 12 stasiun pengamatan (2013-2017), berikut adalah kesimpulan utamanya:
-
-    1. **Pola Musiman yang Konsisten:** Kualitas udara sangat dipengaruhi oleh siklus tahunan. Polusi PM2.5 mencapai titik paling kritis pada **bulan Desember dan Januari** (Musim Dingin), yang kemungkinan disebabkan oleh peningkatan emisi pemanas ruangan dan kondisi atmosfer yang stabil. Sebaliknya, kualitas udara paling bersih ditemukan pada **bulan Agustus**.
-    2. **Ketimpangan Kualitas Udara Antar Wilayah:** Terdapat variasi spasial yang nyata di mana stasiun **Dongsi** mencatatkan frekuensi pelanggaran ambang batas tertinggi (**42.7%**), sementara stasiun **Dingling** secara konsisten menjadi wilayah dengan kualitas udara yang paling stabil dan bersih.
-    3. **Status Kesehatan Udara Secara Keseluruhan:** Melalui teknik *Manual Clustering*, ditemukan bahwa meskipun kategori 'Baik' masih mendominasi (37.3%), terdapat porsi yang sangat signifikan (sekitar **39%**) di mana kualitas udara berada pada level **'Tidak Sehat' hingga 'Sangat Tidak Sehat'**. Ini menunjukkan risiko kesehatan yang nyata bagi penduduk di banyak titik pengamatan.
-    4. **Rekomendasi:** Intervensi kebijakan pengurangan polusi harus diprioritaskan pada wilayah kategori 'High Risk' (seperti Dongsi dan Wanshouxigong) dan dilakukan pengetatan kontrol emisi terutama menjelang akhir tahun untuk memitigasi lonjakan polusi musiman.
-    """)
+    Berdasarkan analisis data kualitas udara 2013-2017 pada 12 stasiun, ditemukan bahwa polusi PM2.5 
+    menunjukkan pola musiman yang kuat, dengan puncak tertinggi pada bulan Desember/Januari dan titik terendah pada bulan Agustus.
+    Secara spasial, terdapat ketimpangan signifikan di mana Stasiun Dongsi merupakan wilayah paling tercemar (42.7% waktu di atas ambang batas), sementara Stasiun Dingling relatif paling bersih. Secara keseluruhan, sekitar 39% waktu pengamatan menunjukkan kualitas udara kategori 'Tidak Sehat' hingga 'Sangat Tidak Sehat', 
+    menegaskan perlunya kebijakan pengendalian emisi yang lebih ketat, khususnya di wilayah perkotaan pada musim dingin.""")
 
 if __name__ == "__main__":
     main()

@@ -112,77 +112,94 @@ def plot_seasonal_trend(df):
     seasonal_df.columns = ['month', 'PM2.5']
 
     fig, ax = plt.subplots(figsize=(12, 6))
-    sns.lineplot(data=seasonal_df, x='month', y='PM2.5', marker='o', linewidth=3, color='darkred', ax=ax)
-    ax.fill_between(seasonal_df['month'], seasonal_df['PM2.5'], color="red", alpha=0.1)
+    
+    # Menggunakan warna darkblue dan shading skyblue seperti di notebook
+    sns.lineplot(data=seasonal_df, x='month', y='PM2.5', marker='o', linewidth=3, color='darkblue', ax=ax)
+    ax.fill_between(seasonal_df['month'], seasonal_df['PM2.5'], color="skyblue", alpha=0.3)
 
-    ax.set_title("Tren Musiman Konsentrasi PM2.5 (Berdasarkan Filter)", fontsize=14, fontweight='bold')
-    ax.set_xlabel("Bulan", fontsize=12)
-    ax.set_ylabel("Rata-rata PM2.5 (µg/m³)", fontsize=12)
+    ax.set_title("Tren Fluktuasi Rata-rata Konsentrasi PM2.5 Bulanan (2013-2017)", fontsize=15, fontweight='bold', pad=20)
+    ax.set_xlabel("Bulan (1-12)", fontsize=12)
+    ax.set_ylabel("Rata-rata Konsentrasi PM2.5 (µg/m³)", fontsize=12)
     ax.set_xticks(range(1, 13))
+    ax.grid(True, linestyle='--', alpha=0.6)
     
     st.pyplot(fig)
     return seasonal_df
 
 def plot_station_comparison(df):
-    # Threshold batas aman
+    # Threshold batas aman PM2.5 = 75
     THRESHOLD = 75
     
-    # Menghitung Rata-rata dan % Pelanggaran
-    station_avg = df.groupby('station')['PM2.5'].mean().sort_values(ascending=False).reset_index()
-    breach_count = df.groupby('station')['PM2.5'].apply(lambda x: (x > THRESHOLD).sum() / len(x) * 100).reset_index()
-    breach_count.columns = ['station', 'breach_percentage']
+    # Menghitung persentase frekuensi PM2.5 > 75 per stasiun
+    station_breach = df.groupby('station')['PM2.5'].apply(lambda x: (x > THRESHOLD).sum() / len(x) * 100).reset_index()
+    station_breach.columns = ['station', 'breach_rate']
 
-    # Penggabungan data stasiun
-    station_stats = pd.merge(station_avg, breach_count, on='station').sort_values(by='PM2.5', ascending=False)
+    # Mengurutkan dari frekuensi pelanggaran tertinggi ke terendah
+    station_breach = station_breach.sort_values(by='breach_rate', ascending=False).reset_index(drop=True)
 
-    fig, ax1 = plt.subplots(figsize=(15, 7))
+    fig, ax = plt.subplots(figsize=(14, 7))
 
-    # Plot Bar untuk Rata-rata
-    sns.barplot(data=station_stats, x='station', y='PM2.5', palette='viridis', hue='station', legend=False, ax=ax1)
-    ax1.set_ylabel('Rata-rata PM2.5 (µg/m³)', fontsize=12, fontweight='bold')
-    ax1.tick_params(axis='x', rotation=45)
+    # Membuat Bar Chart
+    barplot = sns.barplot(
+        data=station_breach,
+        x='station',
+        y='breach_rate',
+        palette='Reds_r', # Gradasi warna merah seperti di notebook
+        hue='station',
+        legend=False,
+        ax=ax
+    )
 
-    # Plot Line untuk % Pelanggaran
-    ax2 = ax1.twinx()
-    sns.lineplot(data=station_stats, x='station', y='breach_percentage', color='red', marker='D', linewidth=2, ax=ax2)
-    ax2.set_ylabel('Persentase Melampaui Ambang Batas (%)', fontsize=12, color='red', fontweight='bold')
+    # Menambahkan label angka persentase di atas setiap batang grafik
+    for p in barplot.patches:
+        barplot.annotate(format(p.get_height(), '.1f') + '%',
+                         (p.get_x() + p.get_width() / 2., p.get_height()),
+                         ha = 'center', va = 'center',
+                         xytext = (0, 9),
+                         textcoords = 'offset points',
+                         fontsize=10)
 
-    plt.title("Perbandingan Kualitas Udara & Konsistensi Polusi Antar Stasiun", fontsize=16, fontweight='bold')
+    ax.set_title("Stasiun dengan Frekuensi Tertinggi Melampaui Ambang Batas PM2.5 (>75 µg/m³) \nPeriode 2013-2017", fontsize=15, fontweight='bold', pad=20)
+    ax.set_xlabel("Nama Stasiun", fontsize=12)
+    ax.set_ylabel("Persentase Waktu Melampaui Batas (%)", fontsize=12)
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+
     st.pyplot(fig)
     
-    return station_stats
+    return station_breach
 
 def cluster_air_quality(pm_value):
     if pm_value <= 35:
-        return 'Baik'
+        return 'Baik (Good)'
     elif pm_value <= 75:
-        return 'Sedang'
+        return 'Sedang (Moderate)'
     elif pm_value <= 150:
-        return 'Tidak Sehat'
+        return 'Tidak Sehat (Unhealthy)'
     else:
-        return 'Sangat Tidak Sehat'
+        return 'Sangat Tidak Sehat (Very Unhealthy)'
 
 def plot_advanced_analysis(df):
     df_clean = df.copy()
-    df_clean['quality_category'] = df_clean['PM2.5'].apply(cluster_air_quality)
+    df_clean['aqi_category'] = df_clean['PM2.5'].apply(cluster_air_quality)
 
     fig, ax = plt.subplots(figsize=(10, 5))
     sns.countplot(
         data=df_clean, 
-        x='quality_category', 
-        order=['Baik', 'Sedang', 'Tidak Sehat', 'Sangat Tidak Sehat'], 
+        x='aqi_category', 
+        order=['Baik (Good)', 'Sedang (Moderate)', 'Tidak Sehat (Unhealthy)', 'Sangat Tidak Sehat (Very Unhealthy)'], 
         palette='RdYlGn_r',
-        hue='quality_category',
+        hue='aqi_category',
         legend=False,
         ax=ax
     )
-    ax.set_title('Distribusi Frekuensi Kategori Kualitas Udara', fontsize=14, fontweight='bold')
+    ax.set_title('Distribusi Frekuensi Kategori Kualitas Udara (Manual Grouping)', fontsize=14, fontweight='bold')
     ax.set_xlabel('Kategori', fontsize=12)
     ax.set_ylabel('Jumlah Observasi', fontsize=12)
     
     st.pyplot(fig)
     
-    quality_distribution = df_clean['quality_category'].value_counts(normalize=True) * 100
+    quality_distribution = df_clean['aqi_category'].value_counts(normalize=True) * 100
     return quality_distribution
 
 # --- MAIN APP ---
@@ -221,44 +238,44 @@ def main():
     st.divider()
 
     # --- PERTANYAAN 1 ---
-    st.subheader("Pertanyaan 1: Pola Musiman Konsentrasi PM2.5")
-    st.markdown("*Apakah terdapat pola musiman yang konsisten pada konsentrasi PM2.5 di seluruh stasiun pengamatan, dan pada bulan-bulan apa polusi mencapai titik paling kritis?*")
+    st.subheader("Pertanyaan 1: Tren Fluktuasi Rata-rata Konsentrasi PM2.5 Bulanan")
+    st.markdown("*Bagaimana tren fluktuasi rata-rata konsentrasi PM2.5 secara bulanan untuk mengidentifikasi pola musiman di seluruh stasiun pengamatan selama periode tahun 2013 hingga 2017?*")
     
     col1, col2 = st.columns([2, 1])
     with col1:
         seasonal_df = plot_seasonal_trend(filtered_df)
     with col2:
-        st.markdown("**Tabel Rata-rata PM2.5 Bulanan**")
+        st.markdown("**Tabel Rata-rata PM2.5 Bulanan (2013-2017)**")
         st.dataframe(seasonal_df.style.format({"PM2.5": "{:.2f}"}), use_container_width=True)
 
     st.info("""
     **Insight Pola Musiman:**
-    Terdapat fluktuasi polusi yang sangat dipengaruhi oleh perubahan bulan/musim dengan siklus 'U-shaped'.
-    * **Titik Tertinggi:** Polusi mencapai titik paling kritis pada bulan Desember dan Januari. Ini berhubungan dengan musim dingin di mana penggunaan pemanas ruangan meningkat dan kondisi atmosfer menjebak polutan.
-    * **Titik Terendah:** Kualitas udara paling bersih ditemukan pada bulan Agustus yang bertepatan dengan musim panas dengan curah hujan tinggi.
+    Berdasarkan grafik garis, terlihat bahwa konsentrasi PM2.5 mengalami fluktuasi musiman yang konsisten. Konsentrasi tertinggi terjadi pada **bulan Desember (>100 µg/m³)** dan terendah pada **bulan Agustus**. 
+    Hal ini mengindikasikan bahwa pada musim dingin, polusi udara meningkat drastis, yang mungkin disebabkan oleh aktivitas pemanas ruangan atau kondisi atmosfer yang menjebak polutan.
     """)
     st.divider()
 
 
     # --- PERTANYAAN 2 ---
-    st.subheader("Pertanyaan 2: Perbandingan Kualitas Udara Antar Stasiun")
-    st.markdown("*Bagaimana perbandingan kualitas udara antar stasiun pengamatan, dan stasiun mana yang paling sering melampaui ambang batas (75 µg/m³) secara konsisten?*")
+    st.subheader("Pertanyaan 2: Stasiun dengan Frekuensi Pelanggaran Tertinggi")
+    st.markdown("*Stasiun manakah yang mencatatkan frekuensi tertinggi dalam melampaui ambang batas konsentrasi PM2.5 (75 µg/m³) secara konsisten selama rentang waktu 2013 hingga 2017?*")
     
-    station_stats = plot_station_comparison(filtered_df)
+    station_breach = plot_station_comparison(filtered_df)
     
-    st.markdown("**Tabel Statistik per Stasiun (Rata-rata & % Pelanggaran)**")
-    st.dataframe(station_stats.style.format({"PM2.5": "{:.2f}", "breach_percentage": "{:.2f}%"}), use_container_width=True)
+    st.markdown("**Tabel Persentase Pelanggaran Ambang Batas per Stasiun (2013-2017)**")
+    st.dataframe(station_breach.style.format({"breach_rate": "{:.2f}%"}), use_container_width=True)
 
     st.info("""
-    **Insight Perbandingan Stasiun:**
-    * **Stasiun Paling Berpolusi:** Stasiun **Dongsi** dan **Wanshouxigong** memiliki rata-rata PM2.5 tertinggi serta memiliki persentase pelanggaran ambang batas paling sering (>40%).
-    * **Stasiun Paling Bersih:** Stasiun **Dingling** menunjukkan performa kualitas udara yang jauh lebih stabil dan bersih dibanding stasiun lain, dengan persentase pelanggaran yang paling minim.
+    **Insight Paparan Tertinggi:**
+    Dari grafik batang, **Stasiun Dongsi** menempati urutan pertama dengan persentase pelanggaran ambang batas tertinggi, yaitu **42.7%**.
+    Sebaliknya, **Stasiun Dingling** merupakan wilayah dengan kualitas udara yang relatif lebih baik karena frekuensi pelanggarannya paling rendah dibandingkan stasiun lainnya.
+    Mayoritas stasiun di wilayah perkotaan menunjukkan angka pelanggaran di atas 40%, menandakan bahwa polusi PM2.5 adalah masalah serius yang merata di banyak titik pengamatan.
     """)
     st.divider()
 
 
     # --- ANALISIS LANJUTAN ---
-    st.subheader("Analisis Lanjutan: Kategorisasi & Binning Risiko")
+    st.subheader("Analisis Lanjutan (Opsional): Kategorisasi & Binning Risiko")
     
     col_adv1, col_adv2 = st.columns([1, 1])
     
@@ -266,21 +283,21 @@ def main():
         st.markdown("**Distribusi Kategori Kualitas Udara (Manual Clustering)**")
         quality_distribution = plot_advanced_analysis(filtered_df)
         dist_df = pd.DataFrame(quality_distribution).reset_index()
-        dist_df.columns = ['Kategori', 'Persentase (%)']
-        st.dataframe(dist_df.style.format({"Persentase (%)": "{:.2f}%"}), use_container_width=True)
+        dist_df.columns = ['aqi_category', 'proportion']
+        st.dataframe(dist_df.style.format({"proportion": "{:.2f}%"}), use_container_width=True)
         
     with col_adv2:
         st.markdown("**Pengelompokan Risiko Stasiun (Binning Analysis)**")
-        # Mengelompokkan stasiun berdasarkan rentang resiko
-        station_risk = station_stats[['station', 'PM2.5']].copy()
-        # Hindari error out of bounds menggunakan rentang max yang aman
-        max_pm25 = station_risk['PM2.5'].max() + 10 
-        station_risk['risk_level'] = pd.cut(
-            station_risk['PM2.5'],
+        # Mengelompokkan stasiun berdasarkan rata-rata dan rentang resiko
+        station_summary = filtered_df.groupby('station')['PM2.5'].mean().reset_index()
+        # Hindari error dengan menambahkan batas aman maksimal
+        max_pm25 = max(100, station_summary['PM2.5'].max() + 10) 
+        station_summary['risk_level'] = pd.cut(
+            station_summary['PM2.5'],
             bins=[0, 75, 85, max_pm25],
             labels=['Low Risk', 'Medium Risk', 'High Risk']
         )
-        st.dataframe(station_risk.sort_values(by='PM2.5', ascending=False).style.format({"PM2.5": "{:.2f}"}), use_container_width=True)
+        st.dataframe(station_summary.sort_values(by='PM2.5', ascending=False).style.format({"PM2.5": "{:.2f}"}), use_container_width=True)
 
     st.divider()
 
@@ -288,12 +305,12 @@ def main():
     # --- KESIMPULAN ---
     st.subheader("📌 Conclusion")
     st.markdown("""
-    Berdasarkan hasil analisis data kualitas udara dari stasiun pengamatan:
+    Berdasarkan hasil analisis data kualitas udara dari 12 stasiun pengamatan (2013-2017), berikut adalah kesimpulan utamanya:
 
-    1. **Pola Musiman yang Konsisten:** Kualitas udara sangat dipengaruhi oleh siklus tahunan. Polusi PM2.5 mencapai titik paling kritis pada **bulan Desember dan Januari** (Musim Dingin). Sebaliknya, kualitas udara paling bersih ditemukan pada **bulan Agustus** (Musim Panas).
-    2. **Ketimpangan Kualitas Udara Antar Wilayah:** Tidak semua wilayah memiliki beban polusi yang sama. Stasiun **Dongsi** teridentifikasi sebagai wilayah dengan **Risiko Tinggi (High Risk)**, sedangkan stasiun **Dingling** secara konsisten menjadi wilayah yang paling bersih (**Low Risk**).
-    3. **Status Kesehatan Udara Secara Keseluruhan:** Meskipun kategori 'Baik' cukup besar, terdapat porsi yang sangat signifikan (sekitar **~39%**) di mana kualitas udara berada pada level **'Tidak Sehat' hingga 'Sangat Tidak Sehat'**. Ini menunjukkan penduduk sering kali terpapar polusi yang melampaui batas aman.
-    4. **Rekomendasi Kebijakan:** Intervensi pengurangan polusi harus diprioritaskan pada stasiun-stasiun di kategori 'High Risk' (seperti Dongsi, Wanshouxigong) dan dilakukan pengetatan kontrol emisi terutama menjelang akhir tahun untuk memitigasi lonjakan polusi musiman.
+    1. **Pola Musiman yang Konsisten:** Kualitas udara sangat dipengaruhi oleh siklus tahunan. Polusi PM2.5 mencapai titik paling kritis pada **bulan Desember dan Januari** (Musim Dingin), yang kemungkinan disebabkan oleh peningkatan emisi pemanas ruangan dan kondisi atmosfer yang stabil. Sebaliknya, kualitas udara paling bersih ditemukan pada **bulan Agustus**.
+    2. **Ketimpangan Kualitas Udara Antar Wilayah:** Terdapat variasi spasial yang nyata di mana stasiun **Dongsi** mencatatkan frekuensi pelanggaran ambang batas tertinggi (**42.7%**), sementara stasiun **Dingling** secara konsisten menjadi wilayah dengan kualitas udara yang paling stabil dan bersih.
+    3. **Status Kesehatan Udara Secara Keseluruhan:** Melalui teknik *Manual Clustering*, ditemukan bahwa meskipun kategori 'Baik' masih mendominasi (37.3%), terdapat porsi yang sangat signifikan (sekitar **39%**) di mana kualitas udara berada pada level **'Tidak Sehat' hingga 'Sangat Tidak Sehat'**. Ini menunjukkan risiko kesehatan yang nyata bagi penduduk di banyak titik pengamatan.
+    4. **Rekomendasi:** Intervensi kebijakan pengurangan polusi harus diprioritaskan pada wilayah kategori 'High Risk' (seperti Dongsi dan Wanshouxigong) dan dilakukan pengetatan kontrol emisi terutama menjelang akhir tahun untuk memitigasi lonjakan polusi musiman.
     """)
 
 if __name__ == "__main__":
